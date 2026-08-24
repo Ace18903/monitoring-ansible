@@ -1,0 +1,21 @@
+grafana_container_name: grafana
+
+grafana_image: docker.io/grafana/grafana:latest
+
+grafana_port: 3000
+
+grafana_data_volume: grafana-data
+
+grafana_systemd_service: grafana.service
+
+grafana_prometheus_url: http://192.168.57.3:9090
+
+grafana_dashboard_folder: /etc/grafana/provisioning/dashboards
+
+grafana_dashboard_file: node-exporter-dashboard.json
+
+grafana_dashboard_provider_file: dashboards.yml
+
+grafana_dashboard_host_dir: /etc/grafana/dashboards
+
+grafana_dashboard_container_dir: /var/lib/grafana/dashboards

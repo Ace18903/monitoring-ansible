@@ -1,0 +1,9 @@
+- name: Deploy Vector log collectors
+  hosts:
+    - exporters
+    - application
+
+  become: true
+
+  roles:
+    - vector

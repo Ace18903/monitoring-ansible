@@ -1,0 +1,62 @@
+data_dir: /var/lib/vector
+
+sources:
+  syslog:
+    type: file
+    include:
+      - /var/log/syslog
+      - /var/log/auth.log
+
+transforms:
+  enrich:
+    type: remap
+    inputs:
+      - syslog
+
+    source: |
+
+      # Add VM hostname
+      .hostname = get_hostname!()
+
+      # Add environment tag
+      .environment = "{{ vector_environment }}"
+
+      # Identify source server
+      .source = "{{ vector_source }}"
+
+      # Add log severity detection
+      if contains!(.message, "ERROR") {
+        .severity = "error"
+      } else if contains!(.message, "WARNING") {
+        .severity = "warning"
+      } else if contains!(.message, "INFO") {
+        .severity = "info"
+      } else {
+        .severity = "unknown"
+      }
+
+sinks:
+  opensearch:
+
+    type: elasticsearch
+
+    inputs:
+      - enrich
+
+    endpoints:
+      - "{{ vector_opensearch_endpoint }}"
+
+    auth:
+      strategy: basic
+      user: "{{ vector_opensearch_user }}"
+      password: "{{ vector_opensearch_password }}"
+
+    tls:
+      verify_certificate: false
+
+    api_version: v8
+
+    mode: bulk
+
+    bulk:
+      index: logs-%Y-%m-%d

@@ -1,0 +1,146 @@
+- name: Install curl
+  ansible.builtin.apt:
+    name: curl
+    state: present
+    update_cache: true
+  become: true
+
+- name: Render IaC OpenSearch dashboard
+  ansible.builtin.template:
+    src: logs-dashboard.ndjson.j2
+    dest: "{{ logs_dashboard_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Wait for OpenSearch Dashboards
+  ansible.builtin.uri:
+    url: "http://{{ opensearch_dashboards_host }}:{{ opensearch_dashboards_port }}/api/saved_objects/_find?type=dashboard"
+    method: GET
+    user: "{{ opensearch_dashboards_admin_user }}"
+    password: "{{ opensearch_dashboards_admin_password }}"
+    force_basic_auth: true
+    headers:
+      securitytenant: "{{ logs_dashboard_tenant }}"
+    status_code: 200
+    return_content: false
+  register: dashboards_ready
+  until: dashboards_ready.status == 200
+  retries: 30
+  delay: 5
+  become: true
+
+# ---------------------------------------------------------------------------
+# Delete the old index pattern.
+#
+# The previous implementation created only:
+#   title
+#   timeFieldName
+#
+# without the field metadata. This caused:
+# "Could not locate that index-pattern-field"
+# ---------------------------------------------------------------------------
+
+- name: Delete existing IaC index pattern
+  ansible.builtin.command:
+    argv:
+      - curl
+      - --fail-with-body
+      - --silent
+      - --show-error
+      - --user
+      - "{{ opensearch_dashboards_admin_user }}:{{ opensearch_dashboards_admin_password }}"
+      - --request
+      - DELETE
+      - "http://{{ opensearch_dashboards_host }}:{{ opensearch_dashboards_port }}/api/saved_objects/index-pattern/{{ logs_index_pattern_id }}"
+      - --header
+      - "osd-xsrf: true"
+      - --header
+      - "securitytenant: {{ logs_dashboard_tenant }}"
+  register: delete_index_pattern
+  changed_when: delete_index_pattern.rc == 0
+  failed_when: false
+  no_log: true
+  become: true
+
+# ---------------------------------------------------------------------------
+# Create the index pattern with explicit field metadata.
+#
+# These fields match the actual OpenSearch mappings:
+#
+# timestamp           -> date
+# severity.keyword    -> keyword
+# host.keyword        -> keyword
+# source.keyword      -> keyword
+# hostname.keyword    -> keyword
+# environment.keyword -> keyword
+# file.keyword        -> keyword
+# message.keyword     -> keyword
+# ---------------------------------------------------------------------------
+
+- name: Create IaC index pattern with field metadata
+  ansible.builtin.command:
+    argv:
+      - curl
+      - --fail-with-body
+      - --silent
+      - --show-error
+      - --user
+      - "{{ opensearch_dashboards_admin_user }}:{{ opensearch_dashboards_admin_password }}"
+      - --request
+      - POST
+      - "http://{{ opensearch_dashboards_host }}:{{ opensearch_dashboards_port }}/api/saved_objects/index-pattern/{{ logs_index_pattern_id }}"
+      - --header
+      - "osd-xsrf: true"
+      - --header
+      - "Content-Type: application/json"
+      - --header
+      - "securitytenant: {{ logs_dashboard_tenant }}"
+      - --data
+      - >-
+        {
+          "attributes": {
+            "title": "{{ logs_index_pattern }}",
+            "timeFieldName": "{{ logs_time_field }}",
+            "fields": "[{\"name\":\"timestamp\",\"type\":\"date\",\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"severity\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":false},{\"name\":\"severity.keyword\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"host\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":false},{\"name\":\"host.keyword\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"source\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":false},{\"name\":\"source.keyword\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"hostname\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":false},{\"name\":\"hostname.keyword\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"environment\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":false},{\"name\":\"environment.keyword\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"file\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":false},{\"name\":\"file.keyword\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"message\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":false},{\"name\":\"message.keyword\",\"type\":\"string\",\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true}]"
+          }
+        }
+  register: create_index_pattern
+  changed_when: true
+  no_log: true
+  become: true
+
+# ---------------------------------------------------------------------------
+# Import all visualizations and the dashboard.
+# overwrite=true guarantees that the new definitions replace the old ones.
+# ---------------------------------------------------------------------------
+
+- name: Import IaC dashboard visualizations and dashboard
+  ansible.builtin.command:
+    argv:
+      - curl
+      - --fail-with-body
+      - --silent
+      - --show-error
+      - --user
+      - "{{ opensearch_dashboards_admin_user }}:{{ opensearch_dashboards_admin_password }}"
+      - --request
+      - POST
+      - "http://{{ opensearch_dashboards_host }}:{{ opensearch_dashboards_port }}/api/saved_objects/_import?overwrite=true"
+      - --header
+      - "osd-xsrf: true"
+      - --header
+      - "securitytenant: {{ logs_dashboard_tenant }}"
+      - --form
+      - "file=@{{ logs_dashboard_file }}"
+  register: dashboard_import
+  changed_when: true
+  no_log: true
+  become: true
+
+- name: Remove temporary dashboard file
+  ansible.builtin.file:
+    path: "{{ logs_dashboard_file }}"
+    state: absent
+  become: true

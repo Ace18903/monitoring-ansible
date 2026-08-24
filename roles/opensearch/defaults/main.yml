@@ -1,0 +1,19 @@
+opensearch_container_name: opensearch
+opensearch_dashboards_container_name: opensearch-dashboards
+
+opensearch_image: docker.io/opensearchproject/opensearch:latest
+opensearch_dashboards_image: docker.io/opensearchproject/opensearch-dashboards:latest
+
+opensearch_data_volume: opensearch-data
+opensearch_dashboards_data_volume: opensearch-dashboards-data
+
+opensearch_port: 9200
+opensearch_performance_port: 9600
+opensearch_dashboards_port: 5601
+
+opensearch_host: 192.168.57.3
+
+opensearch_admin_password: "OpenSearch@2026Strong!"
+
+opensearch_systemd_service: opensearch.service
+opensearch_dashboards_systemd_service: opensearch-dashboards.service

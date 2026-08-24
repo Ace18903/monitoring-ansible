@@ -1,0 +1,20 @@
+vector_image: "docker.io/timberio/vector:latest-alpine"
+
+vector_container_name: "vector"
+
+vector_systemd_service: "vector.service"
+
+vector_config_dir: "/etc/vector"
+vector_config_file: "/etc/vector/vector.yaml"
+
+vector_data_dir: "/var/lib/vector"
+
+vector_opensearch_endpoint: "https://192.168.57.3:9200"
+
+vector_opensearch_user: "admin"
+
+vector_opensearch_password: "{{ vault_opensearch_password }}"
+
+vector_environment: "lab"
+
+vector_source: "{{ inventory_hostname }}"

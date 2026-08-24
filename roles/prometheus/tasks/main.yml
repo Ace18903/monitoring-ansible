@@ -1,0 +1,85 @@
+- name: Install Podman
+  ansible.builtin.apt:
+    name: podman
+    state: present
+    update_cache: true
+  become: true
+
+- name: Create Prometheus configuration directory
+  ansible.builtin.file:
+    path: "{{ prometheus_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Create Prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ prometheus_config_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Create Prometheus data volume
+  containers.podman.podman_volume:
+    name: "{{ prometheus_data_volume }}"
+    state: present
+  become: true
+
+- name: Pull Prometheus image
+  containers.podman.podman_image:
+    name: "{{ prometheus_image }}"
+    pull: true
+  become: true
+
+- name: Remove existing Prometheus container
+  containers.podman.podman_container:
+    name: "{{ prometheus_container_name }}"
+    state: absent
+  become: true
+
+- name: Create Prometheus container
+  containers.podman.podman_container:
+    name: "{{ prometheus_container_name }}"
+    image: "{{ prometheus_image }}"
+    state: created
+    restart_policy: always
+    publish:
+      - "{{ prometheus_port }}:9090"
+    volume:
+      - "{{ prometheus_data_volume }}:/prometheus"
+      - "{{ prometheus_config_file }}:/etc/prometheus/prometheus.yml:ro,Z"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+  become: true
+
+- name: Generate Prometheus systemd service
+  ansible.builtin.command:
+    cmd: >
+      podman generate systemd
+      --new
+      --name
+      {{ prometheus_container_name }}
+  register: prometheus_systemd_unit
+  changed_when: true
+  become: true
+
+- name: Install Prometheus systemd service
+  ansible.builtin.copy:
+    content: "{{ prometheus_systemd_unit.stdout }}"
+    dest: "/etc/systemd/system/{{ prometheus_systemd_service }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify:
+    - Reload systemd
+    - Enable Prometheus
+    - Start Prometheus
+
+- name: Flush Prometheus handlers
+  ansible.builtin.meta: flush_handlers

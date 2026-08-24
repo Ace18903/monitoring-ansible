@@ -1,0 +1,54 @@
+# ============================================================
+# Monitoring Infrastructure - Complete Deployment
+# ============================================================
+
+# ------------------------------------------------------------
+# 1. Common configuration - ALL SERVERS
+# ------------------------------------------------------------
+- name: Prepare all monitoring servers
+  hosts: all_servers
+  become: true
+
+  roles:
+    - common
+
+
+# ------------------------------------------------------------
+# 2. Monitoring server
+# ------------------------------------------------------------
+- name: Deploy Monitoring Stack
+  hosts: monitoring
+  become: true
+
+  roles:
+    - podman
+    - prometheus
+    - grafana
+    - opensearch
+    - opensearch_dashboards
+
+
+# ------------------------------------------------------------
+# 3. Node Exporter
+# ------------------------------------------------------------
+- name: Deploy Node Exporter
+  hosts: exporters
+  become: true
+
+  roles:
+    - podman
+    - node_exporter
+
+
+# ------------------------------------------------------------
+# 4. Vector log collectors
+# ------------------------------------------------------------
+- name: Deploy Vector log collectors
+  hosts:
+    - exporters
+    - application
+  become: true
+
+  roles:
+    - podman
+    - vector

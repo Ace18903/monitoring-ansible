@@ -1,0 +1,28 @@
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true
+
+- name: Enable OpenSearch
+  ansible.builtin.systemd:
+    name: "{{ opensearch_systemd_service }}"
+    enabled: true
+  become: true
+
+- name: Start OpenSearch
+  ansible.builtin.systemd:
+    name: "{{ opensearch_systemd_service }}"
+    state: started
+  become: true
+
+- name: Enable OpenSearch Dashboards
+  ansible.builtin.systemd:
+    name: "{{ opensearch_dashboards_systemd_service }}"
+    enabled: true
+  become: true
+
+- name: Start OpenSearch Dashboards
+  ansible.builtin.systemd:
+    name: "{{ opensearch_dashboards_systemd_service }}"
+    state: started
+  become: true

@@ -1,0 +1,15 @@
+prometheus_container_name: prometheus
+
+prometheus_image: docker.io/prom/prometheus:latest
+
+prometheus_port: 9090
+
+prometheus_data_volume: prometheus-data
+
+prometheus_config_dir: /etc/prometheus
+
+prometheus_config_file: /etc/prometheus/prometheus.yml
+
+prometheus_systemd_service: prometheus.service
+
+node_exporter_target: "192.168.57.4:9100"

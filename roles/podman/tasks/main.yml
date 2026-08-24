@@ -1,0 +1,16 @@
+---
+- name: Install Podman
+  apt:
+    name:
+      - podman
+    state: present
+    update_cache: yes
+
+- name: Verify Podman installation
+  command: podman --version
+  register: podman_version
+  changed_when: false
+
+- name: Display Podman version
+  debug:
+    var: podman_version.stdout

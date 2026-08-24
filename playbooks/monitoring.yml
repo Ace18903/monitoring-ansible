@@ -1,0 +1,9 @@
+- name: Deploy Prometheus and Grafana
+  hosts: monitoring
+  become: true
+
+  roles:
+    - prometheus
+    - grafana
+    - opensearch
+    - opensearch_dashboards

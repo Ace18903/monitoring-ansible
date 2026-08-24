@@ -1,0 +1,37 @@
+---
+opensearch_dashboards_host: "127.0.0.1"
+opensearch_dashboards_port: 5601
+
+opensearch_dashboards_admin_user: "admin"
+opensearch_dashboards_admin_password: "OpenSearch@2026Strong!"
+
+opensearch_host: "127.0.0.1"
+opensearch_port: 9200
+
+# OpenSearch index pattern
+logs_index_pattern: "logs-*"
+
+# Real date field present in the OpenSearch mappings
+logs_time_field: "timestamp"
+
+# Real keyword fields present in the mappings
+logs_level_field: "severity.keyword"
+logs_host_field: "host.keyword"
+logs_message_field: "message.keyword"
+logs_source_field: "source.keyword"
+logs_hostname_field: "hostname.keyword"
+logs_environment_field: "environment.keyword"
+logs_file_field: "file.keyword"
+
+# Dashboard identifiers
+logs_dashboard_id: "infrastructure-logs-iac"
+logs_dashboard_title: "Infrastructure Logs - IaC"
+
+# Saved object index-pattern identifier
+logs_index_pattern_id: "logs-iac-index-pattern"
+
+# Temporary NDJSON file
+logs_dashboard_file: "/tmp/infrastructure-logs-iac.ndjson"
+
+# OpenSearch Dashboards tenant
+logs_dashboard_tenant: "private"

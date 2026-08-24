@@ -1,0 +1,154 @@
+---
+- name: Install Podman
+  ansible.builtin.apt:
+    name: podman
+    state: present
+    update_cache: true
+  become: true
+
+
+# ------------------------------------------------------------
+# Configuration directories
+# ------------------------------------------------------------
+
+- name: Create Vector configuration directory
+  ansible.builtin.file:
+    path: "{{ vector_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+
+- name: Create Vector data directory
+  ansible.builtin.file:
+    path: "{{ vector_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+
+# ------------------------------------------------------------
+# Vector configuration
+# ------------------------------------------------------------
+
+- name: Deploy Vector configuration
+  ansible.builtin.template:
+    src: vector.yaml.j2
+    dest: "{{ vector_config_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+
+# ------------------------------------------------------------
+# Remove old systemd service
+# ------------------------------------------------------------
+
+- name: Stop old Vector systemd service
+  ansible.builtin.systemd:
+    name: "{{ vector_systemd_service }}"
+    state: stopped
+  become: true
+  failed_when: false
+
+
+- name: Disable old Vector systemd service
+  ansible.builtin.systemd:
+    name: "{{ vector_systemd_service }}"
+    enabled: false
+  become: true
+  failed_when: false
+
+
+- name: Remove old Vector systemd service
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ vector_systemd_service }}"
+    state: absent
+  become: true
+  notify:
+    - Reload systemd
+
+
+# ------------------------------------------------------------
+# Vector container
+# ------------------------------------------------------------
+
+- name: Pull Vector image
+  containers.podman.podman_image:
+    name: "{{ vector_image }}"
+    pull: true
+  become: true
+
+
+- name: Remove existing Vector container
+  containers.podman.podman_container:
+    name: "{{ vector_container_name }}"
+    state: absent
+  become: true
+
+
+- name: Create Vector container
+  containers.podman.podman_container:
+    name: "{{ vector_container_name }}"
+    image: "{{ vector_image }}"
+    state: created
+
+    restart_policy: always
+
+    user: root
+
+    hostname: "{{ inventory_hostname }}"
+
+    volume:
+      - "{{ vector_config_file }}:/etc/vector/vector.yaml:ro,Z"
+      - "/var/log:/var/log:ro,Z"
+      - "{{ vector_data_dir }}:/var/lib/vector:Z"
+
+    command:
+      - "--config"
+      - "/etc/vector/vector.yaml"
+
+  become: true
+
+
+# ------------------------------------------------------------
+# Systemd persistence
+# ------------------------------------------------------------
+
+- name: Generate Vector systemd service
+  ansible.builtin.command:
+    cmd: >
+      podman generate systemd
+      --new
+      --name
+      {{ vector_container_name }}
+  register: vector_systemd_unit
+  changed_when: true
+  become: true
+
+
+- name: Install Vector systemd service
+  ansible.builtin.copy:
+    content: "{{ vector_systemd_unit.stdout }}"
+    dest: "/etc/systemd/system/{{ vector_systemd_service }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify:
+    - Reload systemd
+    - Enable Vector
+    - Start Vector
+
+
+# ------------------------------------------------------------
+# Apply systemd immediately
+# ------------------------------------------------------------
+
+- name: Flush Vector handlers
+  ansible.builtin.meta: flush_handlers

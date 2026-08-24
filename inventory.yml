@@ -1,0 +1,26 @@
+all:
+  children:
+
+    monitoring:
+      hosts:
+        server-monitoring:
+          ansible_host: 192.168.57.3
+          ansible_user: server-monitoring
+
+    exporters:
+      hosts:
+        server-exporter:
+          ansible_host: 192.168.57.4
+          ansible_user: server-exporter
+
+    application:
+      hosts:
+        server-app:
+          ansible_host: 192.168.57.9
+          ansible_user: server-app
+
+    all_servers:
+      hosts:
+        server-monitoring:
+        server-exporter:
+        server-app:

@@ -1,0 +1,144 @@
+- name: Install Podman
+  ansible.builtin.apt:
+    name: podman
+    state: present
+    update_cache: true
+  become: true
+
+- name: Ensure OpenSearch data volume exists
+  containers.podman.podman_volume:
+    name: "{{ opensearch_data_volume }}"
+    state: present
+  become: true
+
+- name: Ensure OpenSearch Dashboards data volume exists
+  containers.podman.podman_volume:
+    name: "{{ opensearch_dashboards_data_volume }}"
+    state: present
+  become: true
+
+- name: Pull OpenSearch image
+  containers.podman.podman_image:
+    name: "{{ opensearch_image }}"
+    pull: true
+  become: true
+
+- name: Pull OpenSearch Dashboards image
+  containers.podman.podman_image:
+    name: "{{ opensearch_dashboards_image }}"
+    pull: true
+  become: true
+
+- name: Remove existing OpenSearch container
+  containers.podman.podman_container:
+    name: "{{ opensearch_container_name }}"
+    state: absent
+  become: true
+
+- name: Remove existing OpenSearch Dashboards container
+  containers.podman.podman_container:
+    name: "{{ opensearch_dashboards_container_name }}"
+    state: absent
+  become: true
+
+- name: Create OpenSearch container
+  containers.podman.podman_container:
+    name: "{{ opensearch_container_name }}"
+    image: "{{ opensearch_image }}"
+    state: created
+    restart_policy: always
+    publish:
+      - "{{ opensearch_port }}:9200"
+      - "{{ opensearch_performance_port }}:9600"
+    volume:
+      - "{{ opensearch_data_volume }}:/usr/share/opensearch/data"
+    env:
+      discovery.type: "single-node"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_admin_password }}"
+  become: true
+
+- name: Create OpenSearch Dashboards container
+  containers.podman.podman_container:
+    name: "{{ opensearch_dashboards_container_name }}"
+    image: "{{ opensearch_dashboards_image }}"
+    state: created
+    restart_policy: always
+    publish:
+      - "{{ opensearch_dashboards_port }}:5601"
+    volume:
+      - "{{ opensearch_dashboards_data_volume }}:/usr/share/opensearch-dashboards/data"
+    env:
+      OPENSEARCH_HOSTS: "[\"https://{{ opensearch_host }}:{{ opensearch_port }}\"]"
+      OPENSEARCH_USERNAME: "admin"
+      OPENSEARCH_PASSWORD: "{{ opensearch_admin_password }}"
+      OPENSEARCH_SSL_VERIFICATIONMODE: "none"
+  become: true
+
+- name: Generate OpenSearch systemd service
+  ansible.builtin.command:
+    cmd: >
+      podman generate systemd
+      --new
+      --name
+      {{ opensearch_container_name }}
+  register: opensearch_systemd_unit
+  changed_when: true
+  become: true
+
+- name: Install OpenSearch systemd service
+  ansible.builtin.copy:
+    content: "{{ opensearch_systemd_unit.stdout }}"
+    dest: "/etc/systemd/system/{{ opensearch_systemd_service }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Generate OpenSearch Dashboards systemd service
+  ansible.builtin.command:
+    cmd: >
+      podman generate systemd
+      --new
+      --name
+      {{ opensearch_dashboards_container_name }}
+  register: opensearch_dashboards_systemd_unit
+  changed_when: true
+  become: true
+
+- name: Install OpenSearch Dashboards systemd service
+  ansible.builtin.copy:
+    content: "{{ opensearch_dashboards_systemd_unit.stdout }}"
+    dest: "/etc/systemd/system/{{ opensearch_dashboards_systemd_service }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true
+
+- name: Enable OpenSearch
+  ansible.builtin.systemd:
+    name: "{{ opensearch_systemd_service }}"
+    enabled: true
+  become: true
+
+- name: Enable OpenSearch Dashboards
+  ansible.builtin.systemd:
+    name: "{{ opensearch_dashboards_systemd_service }}"
+    enabled: true
+  become: true
+
+- name: Start OpenSearch
+  ansible.builtin.systemd:
+    name: "{{ opensearch_systemd_service }}"
+    state: started
+  become: true
+
+- name: Start OpenSearch Dashboards
+  ansible.builtin.systemd:
+    name: "{{ opensearch_dashboards_systemd_service }}"
+    state: started
+  become: true

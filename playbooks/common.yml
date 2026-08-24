@@ -1,0 +1,7 @@
+---
+- name: Prepare all monitoring servers
+  hosts: all_servers
+  become: true
+
+  roles:
+    - common

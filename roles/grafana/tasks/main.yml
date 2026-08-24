@@ -1,0 +1,119 @@
+- name: Install Podman
+  ansible.builtin.apt:
+    name: podman
+    state: present
+    update_cache: true
+  become: true
+
+- name: Create Grafana provisioning directory
+  ansible.builtin.file:
+    path: /etc/grafana/provisioning/datasources
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Create Grafana dashboard provisioning directory
+  ansible.builtin.file:
+    path: "{{ grafana_dashboard_folder }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Create Grafana dashboard directory
+  ansible.builtin.file:
+    path: "{{ grafana_dashboard_host_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Create Grafana Prometheus datasource configuration
+  ansible.builtin.template:
+    src: datasource.yml.j2
+    dest: /etc/grafana/provisioning/datasources/prometheus.yml
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Create Grafana dashboard provider configuration
+  ansible.builtin.template:
+    src: dashboard-provider.yml.j2
+    dest: /etc/grafana/provisioning/dashboards/dashboards.yml
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Deploy Node Exporter dashboard
+  ansible.builtin.template:
+    src: dashboards/node-exporter-dashboard.json.j2
+    dest: "{{ grafana_dashboard_host_dir }}/node-exporter-dashboard.json"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Create Grafana data volume
+  containers.podman.podman_volume:
+    name: "{{ grafana_data_volume }}"
+    state: present
+  become: true
+
+- name: Pull Grafana image
+  containers.podman.podman_image:
+    name: "{{ grafana_image }}"
+    pull: true
+  become: true
+
+- name: Remove existing Grafana container
+  containers.podman.podman_container:
+    name: "{{ grafana_container_name }}"
+    state: absent
+  become: true
+
+- name: Create Grafana container
+  containers.podman.podman_container:
+    name: "{{ grafana_container_name }}"
+    image: "{{ grafana_image }}"
+    state: created
+    restart_policy: always
+    publish:
+      - "{{ grafana_port }}:3000"
+    volume:
+      - "{{ grafana_data_volume }}:/var/lib/grafana"
+      - "/etc/grafana/provisioning:/etc/grafana/provisioning:ro,Z"
+      - "{{ grafana_dashboard_host_dir }}:{{ grafana_dashboard_container_dir }}:ro,Z"
+  become: true
+
+- name: Generate Grafana systemd service
+  ansible.builtin.command:
+    cmd: >
+      podman generate systemd
+      --new
+      --name
+      {{ grafana_container_name }}
+  register: grafana_systemd_unit
+  changed_when: true
+  become: true
+
+- name: Install Grafana systemd service
+  ansible.builtin.copy:
+    content: "{{ grafana_systemd_unit.stdout }}"
+    dest: "/etc/systemd/system/{{ grafana_systemd_service }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify:
+    - Reload systemd
+    - Enable Grafana
+    - Start Grafana
+
+- name: Flush Grafana handlers
+  ansible.builtin.meta: flush_handlers

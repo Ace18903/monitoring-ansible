@@ -1,0 +1,60 @@
+- name: Install Podman
+  ansible.builtin.apt:
+    name: podman
+    state: present
+    update_cache: true
+  become: true
+
+- name: Pull Node Exporter image
+  containers.podman.podman_image:
+    name: "{{ node_exporter_image }}"
+    pull: true
+  become: true
+
+- name: Remove existing Node Exporter container
+  containers.podman.podman_container:
+    name: "{{ node_exporter_container_name }}"
+    state: absent
+  become: true
+
+- name: Create Node Exporter container
+  containers.podman.podman_container:
+    name: "{{ node_exporter_container_name }}"
+    image: "{{ node_exporter_image }}"
+    state: created
+    restart_policy: always
+    publish:
+      - "{{ node_exporter_port }}:9100"
+    pid_mode: host
+    volume:
+      - "/:/host:ro,rslave"
+    command:
+      - "--path.rootfs=/host"
+  become: true
+
+- name: Generate systemd service for Node Exporter
+  ansible.builtin.command:
+    cmd: >
+      podman generate systemd
+      --new
+      --name
+      {{ node_exporter_container_name }}
+  register: node_exporter_systemd_unit
+  changed_when: true
+  become: true
+
+- name: Install Node Exporter systemd service
+  ansible.builtin.copy:
+    content: "{{ node_exporter_systemd_unit.stdout }}"
+    dest: "/etc/systemd/system/{{ node_exporter_systemd_service }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify:
+    - Reload systemd
+    - Enable Node Exporter
+    - Start Node Exporter
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
