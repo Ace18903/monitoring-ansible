@@ -120,7 +120,7 @@ ansible-playbook site.yml
 If privilege escalation requires a password:
 
 ```bash
-ansible-playbook site.yml --ask-become-pass
+ansible-playbook site.yml --ask-become-pass --ask-vault-pass
 ```
 
 After deployment, Ansible configures the required servers, containers, services, volumes, and monitoring/logging components.
@@ -157,18 +157,7 @@ Once the deployment is complete, the main interfaces are available at:
 
 ## Security
 
-Sensitive configuration is managed using **Ansible Vault**.
-
-The following information must **never** be committed to GitHub:
-
-* Vault passwords
-* SSH private keys
-* API tokens
-* Application passwords
-* OpenSearch credentials
-* Other sensitive credentials or secrets
-
-Before pushing the project, verify that sensitive files and credentials are excluded from Git tracking.
+Sensitive configuration is managed using **Ansible Vault**
 
 ---
 
@@ -177,7 +166,7 @@ Before pushing the project, verify that sensitive files and credentials are excl
 The complete infrastructure can be deployed with:
 
 ```bash
-ansible-playbook site.yml
+ansible-playbook site.yml --ask-become-pass --ask-vault-pass
 ```
 
 This is the main entry point for reproducing the monitoring and centralized logging environment.
