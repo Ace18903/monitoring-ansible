@@ -3,7 +3,6 @@ opensearch_dashboards_host: "127.0.0.1"
 opensearch_dashboards_port: 5601
 
 opensearch_dashboards_admin_user: "admin"
-opensearch_dashboards_admin_password: "OpenSearch@2026Strong!"
 
 opensearch_host: "127.0.0.1"
 opensearch_port: 9200

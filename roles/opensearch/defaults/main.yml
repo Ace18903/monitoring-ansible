@@ -13,7 +13,6 @@ opensearch_dashboards_port: 5601
 
 opensearch_host: 192.168.57.3
 
-opensearch_admin_password: "OpenSearch@2026Strong!"
 
 opensearch_systemd_service: opensearch.service
 opensearch_dashboards_systemd_service: opensearch-dashboards.service
